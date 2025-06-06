@@ -73,12 +73,8 @@ for generation in range(NUM_GENERATIONS):
         child = mutate(crossover(parents[0], parents[1]))             # Crossover + mutação
         population.append(child)
 
-# === RESULTADO FINAL ===
+# === GUARDA RESULTADO FINAL ===
 best_score, best_dna = max([(evaluate_dna(dna), dna) for dna in population], key=lambda x: x[0])
-
-print(f"💰 Melhor capital final: R$ {best_score:.2f}")
-for i in range(NUM_CYCLES):
-    print(f"Ciclo {i+1}: {best_dna[i * NUM_POTS: (i + 1) * NUM_POTS]}")
 
 # === DETALHAMENTO DOS CICLOS DO MELHOR DNA ===
 capital = INITIAL_CAPITAL
@@ -107,3 +103,6 @@ for cycle_index, (buy_day, sell_day) in enumerate(day_pairs):
     lucro_total = (new_capital / capital - 1) * 100
     print(f"  💼 Capital antes: R$ {capital:.2f} → depois: R$ {new_capital:.2f} | Lucro total ciclo: {lucro_total:.2f}%")
     capital = new_capital
+
+# === MOSTRA O RESULTADO FINAL ===
+print(f"💰 Melhor capital final: R$ {best_score:.2f}")
