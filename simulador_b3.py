@@ -1,3 +1,5 @@
+# DESENVOLVIDO POR: Gustavo Baron Lauritzen, Matheus Baron Lauritzen e Gabriel Bósio
+
 import pandas as pd
 import random
 import numpy as np
