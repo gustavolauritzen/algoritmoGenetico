@@ -1,72 +1,106 @@
 import pandas as pd
-import streamlit as st
+import random
+import numpy as np
 
-st.set_page_config(page_title="Simulador B3 - 10 Potes", layout="wide")
-st.title("📈 Simulador de Alocação Otimizada - B3 (10 Potes)")
+# === CONFIGURAÇÃO ===
+CSV_PATH = "dataset/cotacoes_b3_2025_05.csv"
+INITIAL_CAPITAL = 1000.0
+POP_SIZE = 50
+NUM_GENERATIONS = 100
+MUTATION_RATE = 0.1
+NUM_POTS = 10
 
-# Upload do arquivo
-file = st.file_uploader("📤 Envie o arquivo de cotações (.csv)", type=["csv"])
+# === CARREGAR DADOS ===
+df = pd.read_csv(CSV_PATH, sep=';', engine='python')
+df.columns = ['Data', 'Codigo', 'Fechamento']
+df['Fechamento'] = df['Fechamento'].str.replace(',', '.').astype(float)
+df = df[df['Codigo'].str.match(r'^[A-Z0-9]{5}$')]
+df['Data'] = pd.to_datetime(df['Data'])
+df = df.sort_values(by='Data')
 
-if file:
-    df = pd.read_csv(file, sep=';', engine='python')
-    df.columns = ['Data', 'Codigo', 'Fechamento']
-    df['Fechamento'] = df['Fechamento'].str.replace(',', '.').astype(float)
-    df = df[df['Codigo'].str.match(r'^[A-Z0-9]{5}$')]
-    df['Data'] = pd.to_datetime(df['Data'])
-    df = df.sort_values(by='Data')
+price_table = df.pivot(index='Data', columns='Codigo', values='Fechamento').sort_index()
+dates = price_table.index
+day_pairs = [(dates[i], dates[i+1]) for i in range(0, len(dates) - 1, 2)]
+NUM_CYCLES = len(day_pairs)
+TOTAL_GENES = NUM_CYCLES * NUM_POTS
+VALID_CODES = list(price_table.columns.dropna())
 
-    price_table = df.pivot(index='Data', columns='Codigo', values='Fechamento')
-    price_table = price_table.sort_index()
+# === FUNÇÕES GENÉTICAS ===
 
-    initial_capital = 1000.0
-    num_potes = 10
-    capital = initial_capital
-    dates = price_table.index
-    num_days = len(dates)
-    operations = []
+def random_dna():
+    return [random.choice(VALID_CODES) for _ in range(TOTAL_GENES)]
 
-    st.success("📊 Dados carregados com sucesso!")
-
-    for i in range(0, num_days - 1, 2):
-        day_buy = dates[i]
-        day_sell = dates[i + 1]
-
-        buy_prices = price_table.loc[day_buy]
-        sell_prices = price_table.loc[day_sell]
-
-        valid_actions = buy_prices.dropna().index.intersection(sell_prices.dropna().index)
-        returns = (sell_prices[valid_actions] / buy_prices[valid_actions]) - 1
-
-        top_10 = returns.sort_values(ascending=False).head(num_potes)
-        pot_value = capital / num_potes
+def evaluate_dna(dna):
+    capital = INITIAL_CAPITAL
+    for cycle_index, (buy_day, sell_day) in enumerate(day_pairs):
+        buy_prices = price_table.loc[buy_day]
+        sell_prices = price_table.loc[sell_day]
+        cycle_genes = dna[cycle_index * NUM_POTS: (cycle_index + 1) * NUM_POTS]
+        pot_value = capital / NUM_POTS
         new_capital = 0
-        pot_results = []
-
-        for action in top_10.index:
-            qty = pot_value / buy_prices[action]
-            final_value = qty * sell_prices[action]
-            new_capital += final_value
-            pot_results.append({
-                'Ação': action,
-                'Preço Compra': round(buy_prices[action], 2),
-                'Preço Venda': round(sell_prices[action], 2),
-                'Quantidade': round(qty, 2),
-                'Valor Final': round(final_value, 2),
-                'Lucro (%)': round((sell_prices[action] / buy_prices[action] - 1) * 100, 2)
-            })
-
+        for gene in cycle_genes:
+            if gene not in buy_prices or gene not in sell_prices:
+                continue
+            buy_price = buy_prices[gene]
+            sell_price = sell_prices[gene]
+            if np.isnan(buy_price) or np.isnan(sell_price):
+                continue
+            qty = pot_value / buy_price
+            new_capital += qty * sell_price
         capital = new_capital
-        operations.append({
-            'buy_date': day_buy.strftime('%Y-%m-%d'),
-            'sell_date': day_sell.strftime('%Y-%m-%d'),
-            'capital': round(capital, 2),
-            'pot_details': pot_results
-        })
+    return capital
 
-    # Exibir simulação
-    for i, op in enumerate(operations):
-        with st.expander(f"🔁 Ciclo {i+1} | Compra: {op['buy_date']} → Venda: {op['sell_date']} | Capital: R$ {op['capital']:.2f}"):
-            st.dataframe(pd.DataFrame(op['pot_details']))
+def crossover(dna1, dna2):
+    point = random.randint(1, TOTAL_GENES - 1)
+    return dna1[:point] + dna2[point:]
 
-    st.header(f"💰 Capital final: R$ {capital:.2f}")
-    st.caption("Simulação baseada nas 10 ações mais lucrativas a cada ciclo de 2 dias úteis.")
+def mutate(dna):
+    return [gene if random.random() > MUTATION_RATE else random.choice(VALID_CODES) for gene in dna]
+
+# === ALGORITMO GENÉTICO ===
+population = [random_dna() for _ in range(POP_SIZE)]
+
+for generation in range(NUM_GENERATIONS):
+    scored_population = [(evaluate_dna(dna), dna) for dna in population]
+    scored_population.sort(reverse=True, key=lambda x: x[0])
+    population = [dna for _, dna in scored_population[:POP_SIZE//2]]
+
+    while len(population) < POP_SIZE:
+        parents = random.sample(population[:POP_SIZE//4], 2)
+        child = mutate(crossover(parents[0], parents[1]))
+        population.append(child)
+
+# === RESULTADO FINAL ===
+best_score, best_dna = max([(evaluate_dna(dna), dna) for dna in population], key=lambda x: x[0])
+
+print(f"💰 Melhor capital final: R$ {best_score:.2f}")
+for i in range(NUM_CYCLES):
+    print(f"Ciclo {i+1}: {best_dna[i * NUM_POTS: (i + 1) * NUM_POTS]}")
+
+# === DETALHAMENTO DOS CICLOS DO MELHOR DNA ===
+capital = INITIAL_CAPITAL
+print("\n📈 Detalhamento dos ciclos:")
+for cycle_index, (buy_day, sell_day) in enumerate(day_pairs):
+    buy_prices = price_table.loc[buy_day]
+    sell_prices = price_table.loc[sell_day]
+    cycle_genes = best_dna[cycle_index * NUM_POTS: (cycle_index + 1) * NUM_POTS]
+    pot_value = capital / NUM_POTS
+    new_capital = 0
+
+    print(f"\n🔹 Ciclo {cycle_index + 1} | Compra: {buy_day.date()} → Venda: {sell_day.date()}")
+    for i, gene in enumerate(cycle_genes):
+        if gene not in buy_prices or gene not in sell_prices:
+            continue
+        buy_price = buy_prices[gene]
+        sell_price = sell_prices[gene]
+        if pd.isna(buy_price) or pd.isna(sell_price):
+            continue
+        qty = pot_value / buy_price
+        final_value = qty * sell_price
+        lucro_pct = (sell_price / buy_price - 1) * 100
+        new_capital += final_value
+        print(f"  🧪 Pote {i+1}: {gene} | Compra: {buy_price:.2f} | Venda: {sell_price:.2f} | Lucro: {lucro_pct:.2f}%")
+
+    lucro_total = (new_capital / capital - 1) * 100
+    print(f"  💼 Capital antes: R$ {capital:.2f} → depois: R$ {new_capital:.2f} | Lucro total ciclo: {lucro_total:.2f}%")
+    capital = new_capital
