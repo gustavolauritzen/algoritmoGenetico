@@ -7,8 +7,8 @@ import numpy as np
 # === CONFIGURAÇÃO ===
 CSV_PATH = "dataset/cotacoes_b3_2025_05.csv"  # Caminho do dataset de cotações
 INITIAL_CAPITAL = 1000.0                      # Capital inicial
-POP_SIZE = 50                                 # Tamanho da população (quantos DNAs por geração)
-NUM_GENERATIONS = 100                         # Número de gerações a evoluir
+POP_SIZE = 100                                 # Tamanho da população (quantos DNAs por geração)
+NUM_GENERATIONS = 5000                         # Número de gerações a evoluir
 MUTATION_RATE = 0.1                           # Taxa de mutação (10%)
 NUM_POTS = 10                                 # Número de potes de investimento (ações simultâneas)
 
