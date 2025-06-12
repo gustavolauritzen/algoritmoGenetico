@@ -13,16 +13,16 @@ MUTATION_RATE = 0.1                           # Taxa de mutação (10%)
 NUM_POTS = 10                                 # Número de potes de investimento (ações simultâneas)
 
 # === CARREGAR DADOS ===
-df = pd.read_csv(CSV_PATH, sep=';', engine='python')  # Lê o CSV
-df.columns = ['Data', 'Codigo', 'Fechamento']         # Renomeia as colunas
-df['Fechamento'] = df['Fechamento'].str.replace(',', '.').astype(float)  # Converte o valor
-df = df[df['Codigo'].str.match(r'^[A-Z0-9]{5}$')]      # Filtra ações com códigos de 5 caracteres
-df['Data'] = pd.to_datetime(df['Data'])               # Converte a coluna de data
-df = df.sort_values(by='Data')                        # Ordena cronologicamente
+data = pd.read_csv(CSV_PATH, sep=';', engine='python')  # Lê o CSV
+data.columns = ['Data', 'Codigo', 'Fechamento']         # Renomeia as colunas
+data['Fechamento'] = data['Fechamento'].str.replace(',', '.').astype(float)  # Converte o valor
+data = data[data['Codigo'].str.match(r'^[A-Z0-9]{5}$')]      # Filtra ações com códigos de 5 caracteres
+data['Data'] = pd.to_datetime(data['Data'])               # Converte a coluna de data
+data = data.sort_values(by='Data')                        # Ordena cronologicamente
 
 # === TABELA DE PREÇOS ===
 #Uma tabela onde o índice é a data e cada coluna é uma ação
-price_table = df.pivot(index='Data', columns='Codigo', values='Fechamento').sort_index()
+price_table = data.pivot(index='Data', columns='Codigo', values='Fechamento').sort_index()
 dates = price_table.index
 day_pairs = [(dates[i], dates[i+1]) for i in range(0, len(dates) - 1, 2)]  # Cria pares de dias: compra/venda
 NUM_CYCLES = len(day_pairs)                             # Quantos ciclos temos (10 para 20 dias úteis)
